@@ -929,7 +929,7 @@ SALR.prototype.highlightOwnUsername = function() {
 SALR.prototype.highlightOwnQuotes = function() {
     var that = this;
 
-    jQuery('.bbc-block h4:contains(' + this.settings.username + ')').each(function() {
+    jQuery('.bbc-block h4:contains(' + that.settings.username + ')').each(function() {
         jQuery(this).parent().css("background-color", that.settings.userQuote);
 
         // Replace the styling from username highlighting
