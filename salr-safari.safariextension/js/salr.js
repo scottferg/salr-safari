@@ -111,7 +111,7 @@ SALR.prototype.pageInit = function() {
                 this.threadNotes();
             }
 
-            if (!this.settings.searchThreadHide == 'true') {
+            if (this.settings.searchThreadHide != 'true') {
                 this.addSearchThreadForm();
             }
 
@@ -142,7 +142,9 @@ SALR.prototype.pageInit = function() {
 
             break;
         case 'bookmarkthreads.php':
-            this.renderOpenUpdatedThreadsButton();
+            if (this.settings.openAllUnreadLink == 'true') {
+                this.renderOpenUpdatedThreadsButton();
+            }
 
             if (this.settings.highlightModAdmin == 'true') {
                 this.highlightModAdminPosts();
@@ -166,7 +168,7 @@ SALR.prototype.pageInit = function() {
     }
 
     if (this.settings.enableKeyboardShortcuts == 'true') {
-        this.hotKeyManager = new HotKeyManager();
+        this.hotKeyManager = new HotKeyManager(this.quickReply);
     }
 
     if (this.settings.displayOmnibarIcon == 'true') {
@@ -717,7 +719,7 @@ SALR.prototype.highlightModAdminForumDisplay = function() {
 SALR.prototype.highlightModAdminShowThread = function() {
     var that = this;
 
-    if (!this.settings.highlightModAdminUsername == 'true') {
+    if (this.settings.highlightModAdminUsername != 'true') {
         jQuery('table.post:has(dt.author:has(img[title="Moderator"])) td').each(function () {
             jQuery(this).css({
                 'border-collapse' : 'collapse',
