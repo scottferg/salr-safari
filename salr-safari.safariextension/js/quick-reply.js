@@ -247,6 +247,8 @@ QuickReplyBox.prototype.appendQuote = function(username, quote) {
     var quote_string = '';
 
     if (username && quote) {
+        re = RegExp(/\<.*\> &nbsp;/);
+        username = username.replace(re, '');
         var current_message = jQuery('#post-message').val();
 
         quote_string += '[quote="' + username + '"]\n' + jQuery.trim(quote) + '\n[/quote]\n\n';
@@ -262,6 +264,11 @@ QuickReplyBox.prototype.parseQuote = function(quote_string) {
 
     // Remove any quote blocks within the quote
     jQuery('div.bbc-block', result).each(function() {
+        jQuery(this).remove();
+    });
+
+    // Remove signatures
+    jQuery('p.signature', result).each(function() {
         jQuery(this).remove();
     });
 
