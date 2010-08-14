@@ -129,6 +129,7 @@ SALR.prototype.pageInit = function() {
 
             break;
         case 'usercp.php':
+        case 'usercp.php#':
             this.updateUsernameFromCP();
             this.updateFriendsList();
 
@@ -138,6 +139,10 @@ SALR.prototype.pageInit = function() {
 
             if (this.settings.highlightModAdmin == 'true') {
                 this.highlightModAdminPosts();
+            }
+
+            if (this.settings.showEditBookmarks == 'true') {
+                jQuery('#bookmark_edit_attach').click();
             }
 
             break;
@@ -156,7 +161,11 @@ SALR.prototype.pageInit = function() {
                 this.highlightModAdminPosts();
             }
 
-        break;
+            break;
+        case 'member.php':
+            this.addRapSheetToProfile();
+
+            break;
     }
 
     if (this.pageNavigator) {
@@ -590,6 +599,8 @@ SALR.prototype.updateFriendsList = function() {
  */
 SALR.prototype.highlightFriendPosts = function() {
     var that = this;
+    if (!this.settings.friendsList)
+        return;
     var friends = JSON.parse(this.settings.friendsList);
     var selector = '';
 
@@ -1158,3 +1169,18 @@ SALR.prototype.addSearchThreadForm = function() {
         keywords.val(keywords.val()+' threadid:'+threadid);
     });
 };
+
+/**
+ *
+ *  Add a rap sheet link to user's profiles
+ *
+ **/
+SALR.prototype.addRapSheetToProfile = function() {
+    var link = jQuery('a[href*=userid]:first');
+    var userid = link.attr('href').split('userid=')[1];
+    var el = link.parent().clone();
+    jQuery('a',el).attr('href','http://forums.somethingawful.com/banlist.php?userid='+userid);
+    jQuery('a',el).text('Rap Sheet');
+    link.parent().append(' ');
+    link.parent().append(el);
+}
