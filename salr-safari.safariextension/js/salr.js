@@ -48,6 +48,8 @@ SALR.prototype.pageInit = function() {
     switch (findCurrentPage()) {
         case '':
         case 'index.php':
+            this.updateForumsListIndex();
+
             if (this.settings.highlightModAdmin == 'true') {
                 this.skimModerators();
             }
@@ -77,13 +79,13 @@ SALR.prototype.pageInit = function() {
                 this.highlightOwnPosts();
             }
 
+            if (this.settings.enableUserNotes == 'true') {
+                this.displayUserNotes();
+            }
+
             if (this.settings.highlightModAdmin == 'true') {
                 this.skimModerators();
                 this.highlightModAdminPosts();
-            }
-
-            if (this.settings.enableUserNotes == 'true') {
-                this.displayUserNotes();
             }
 
             if (this.settings.boxQuotes == 'true') {
@@ -99,6 +101,12 @@ SALR.prototype.pageInit = function() {
             }
 
             this.displaySinglePostLink();
+            this.tldrQuotes();
+
+            // Display Rap Sheet link on single post view
+            if (window.location.href.indexOf('showpost') >= 0) {
+                this.displayRapSheetLink();
+            }
 
             if (this.settings.enableQuickReply == 'true') {
                 if (this.settings.forumPostKey) {
@@ -115,7 +123,22 @@ SALR.prototype.pageInit = function() {
                 this.addSearchThreadForm();
             }
 
+            if (this.settings.fixCancer == 'true') {
+                this.fixCancerPosts();
+            }
+
             this.renderWhoPostedInThreadLink();
+
+            if (this.settings.adjustAfterLoad == 'true') {
+                window.onload = function() {
+                    var href = window.location.href;
+                    if (href.indexOf('#pti') >= 0 || href.indexOf('#post') >= 0) {
+                        var first = findFirstUnreadPost();
+                        var post = jQuery('div#thread > table.post').eq(first);
+                        jQuery(window).scrollTop(post.offset().top);
+                    }
+                };
+            }
 
             break;
         case 'newreply.php':
@@ -163,7 +186,9 @@ SALR.prototype.pageInit = function() {
 
             break;
         case 'member.php':
-            this.addRapSheetToProfile();
+            if (window.location.href.indexOf('action=getinfo') >= 0) {
+                this.addRapSheetToProfile();
+            }
 
             break;
     }
@@ -202,8 +227,9 @@ SALR.prototype.updateStyling = function() {
     jQuery('tr.thread').each(function() {
         var thread = jQuery(this);
         var newPosts = false;
+        var seenThread = false;
 
-        if (!that.settings.disableCustomButtons || that.settings.disableCustomButtons == 'false') {
+        if (that.settings.displayCustomButtons == 'true') {
 
             // Re-style the new post count link
             jQuery('a.count', thread).each(function() {
@@ -259,6 +285,8 @@ SALR.prototype.updateStyling = function() {
             jQuery('a.x', thread).each(function() {
                 var other = that;
 
+                seenThread = true;
+
                 // Set the image styles
                 jQuery(this).css("background", "none");
                 jQuery(this).css("background-image", "url('" + other.base_image_uri + "unvisit.png')");
@@ -278,11 +306,18 @@ SALR.prototype.updateStyling = function() {
         } else {
             if (jQuery('a.count', thread).length)
                 newPosts = true;
+            if (jQuery('a.x', thread).length)
+                seenThread = true;
         }
 
-        // If thread coloring enabled in forum preferences
-        // recolor according to SALR settings
-        if (thread.attr('class') == 'thread seen') {
+        var noStars = (jQuery('td.star').css('display') == 'none');
+
+        // Use custom highlighting if:
+        //   highlightThread setting is enabled
+        //   this thread has unread posts
+        //   bookmark coloring forums option is disabled
+        //      or stars is disabled
+        if (that.settings.highlightThread=='true' && seenThread && (thread.attr('class') == 'thread seen' || thread.attr('class')=='thread' || noStars)) {
             // If the thread has new posts, display the green shade,
             // otherwise show the blue shade
             var darkShade = (newPosts) ? that.settings.darkNewReplies : that.settings.darkRead;
@@ -316,7 +351,11 @@ SALR.prototype.updateStyling = function() {
     });
 	
 	if(this.settings.displayConfigureSalr == 'true') {
-		jQuery('#navigation li.first').next('li').next('li').after(" - <a id='configure' href='#'>Configure SALR</a>");
+        if ( this.settings.showNavigation == 'true' ) {
+            jQuery('#navigation li.first').next('li').next('li').after("- <li><a id='configure' href='#'>Configure SALR</a></li>");
+        } else {
+            jQuery('#container').before("<div style='padding: 3px; text-align: center; font-size: 10px;'><a id='configure' href='#'>Configure SALR</a></div>");
+        }
 	}
 	
 	jQuery('#configure').click(function() {
@@ -329,12 +368,153 @@ SALR.prototype.updateStyling = function() {
             jQuery(this).html('');
             jQuery(this).css('height', '0px');
         });
-
-        jQuery('ul#nav_purchase').each(function() {
-            jQuery(this).html('');
-            jQuery(this).css('height', '0px');
-        });
     }
+	
+	// Hide each top row of links
+	if (this.settings.showPurchases == 'false') {
+		jQuery('#nav_purchase').each(function() {
+			jQuery(this).remove();
+		});
+	}
+    
+	if (this.settings.showNavigation == 'false') {
+		jQuery('#navigation').each(function() {
+			jQuery(this).remove();
+		});
+	}
+	
+	// Hide individual top menu items
+	if (this.settings.topPurchaseAcc == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/products/register.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchasePlat == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/products/platinum.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+	
+	if (this.settings.topPurchaseAva == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/products/titlechange.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseOtherAva == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=others_custom_title'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseArchives == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/products/archives.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+		if (this.settings.topPurchaseNoAds == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/products/noads.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseNewUsername == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=rename'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseNonProfAd == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=banner_ad_internal'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseForProfAd == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=banner_ad'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseEmoticon == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=smilie'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseSticky == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=sticky'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPurchaseGiftCert == 'false') {
+		jQuery("#nav_purchase li:has(a[href='https://secure.somethingawful.com/forumsystem/index.php?item=gift_cert'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topSAForums == 'false') {
+		jQuery("#navigation li:has(a[href='/index.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topSearch == 'false') {
+		jQuery("#navigation li:has(a[href='/f/search'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topUserCP == 'false') {
+		jQuery("#navigation li:has(a[href='usercp.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topPrivMsgs == 'false') {
+		jQuery("#navigation li:has(a[href='/private.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topForumRules == 'false') {
+		jQuery("#navigation li:has(a[href='http://www.somethingawful.com/d/forum-rules/forum-rules.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topSaclopedia == 'false') {
+		jQuery("#navigation li:has(a[href='/dictionary.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topGloryhole == 'false') {
+		jQuery("#navigation li:has(a[href='/stats.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topLepersColony == 'false') {
+		jQuery("#navigation li:has(a[href='/banlist.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topSupport == 'false') {
+		jQuery("#navigation li:has(a[href='/supportmail.php'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
+
+	if (this.settings.topLogout == 'false') {
+		jQuery("#navigation li:has(a[href='/account.php?s=&action=logout&ma=0339831a'])").each(function() {
+			jQuery(this).remove();
+		});
+	}
 
     // Hide the advertisements
     if (this.settings.hideAdvertisements == 'true') {
@@ -429,23 +609,31 @@ SALR.prototype.skimModerators = function() {
     var modupdate = false;
     if (this.settings.modList == null) {
         // Seed administrators. Is there a list for them?
-        modList = { "12831" : {'username' :  'elpintogrande', 'mod' : 'A'},
-                    "16393" : {'username' :  'Fistgrrl', 'mod' : 'A'},
-                    "17553" : {'username' :  'Livestock', 'mod' : 'A'},
-                    "22720" : {'username' :  'Ozma', 'mod' : 'A'},
-                    "23684" : {'username' :  'mons all madden', 'mod' : 'A'},
-                    "24587" : {'username' :  'hoodrow trillson', 'mod' : 'A'},
-                    "27691" : {'username' :  'Lowtax', 'mod' : 'A'},
-                    "51697" : {'username' :  'angerbotSD', 'mod' : 'A'},
-                    "62392" : {'username' :  'Tiny Fistpump', 'mod' : 'A'},
-                    "114975" : {'username' : 'SA Support Robot', 'mod' : 'A'},
-                    "137488" : {'username' : 'Garbage Day', 'mod' : 'A'},
-                    "147983" : {'username' : 'Peatpot', 'mod' : 'A'},
-                    "158420" : {'username' : 'Badvertising', 'mod' : 'A'},
+        // Also old moderator name changes
+        modList = { "12831"  : {'username' : ['elpintogrande'], 'mod' : 'A'},
+                    "16393"  : {'username' : ['Fistgrrl'], 'mod' : 'A'},
+                    "17553"  : {'username' : ['Livestock'], 'mod' : 'A'},
+                    "22720"  : {'username' : ['Ozma'], 'mod' : 'A'},
+                    "23684"  : {'username' : ['mons all madden','mons al-madeen'], 'mod' : 'A'},
+                    "24587"  : {'username' : ['hoodrow trillson'], 'mod' : 'A'},
+                    "27691"  : {'username' : ['Lowtax'], 'mod' : 'A'},
+                    "51697"  : {'username' : ['angerbotSD','angerbot'], 'mod' : 'A'},
+                    "62392"  : {'username' : ['Tiny Fistpump'], 'mod' : 'A'},
+                    "114975" : {'username' : ['SA Support Robot'], 'mod' : 'A'},
+                    "137488" : {'username' : ['Garbage Day'], 'mod' : 'A'},
+                    "147983" : {'username' : ['Peatpot'], 'mod' : 'A'},
+                    "158420" : {'username' : ['Badvertising'], 'mod' : 'A'},
+                    "42786"  : {'username' : ['strwrsxprt'], 'mod' : 'M'},
                    };
         modupdate = true;
     } else {
         modList = JSON.parse(this.settings.modList);
+
+        // If old style of modList is detected, force reset
+        if (typeof(modList['23684'].username) == 'string') {
+            localStorage.removeItem('modList');
+            return;
+        }
     }
 
     // TODO: How can you tell if a mod has been demodded?
@@ -455,10 +643,15 @@ SALR.prototype.skimModerators = function() {
         var userid = jQuery(this).attr('href').split('userid=')[1];
         var username = jQuery(this).html();
         if (modList[userid] == null) {
-            modList[userid] = {'username' : username, 'mod' : 'M'};
+            modList[userid] = {'username' : [username], 'mod' : 'M'};
             modupdate = true;
-        } else if (modList[userid].username != username) {
-            modList[userid].username = username;
+        } else {
+            var namechange=true;
+            for (unum in modList[userid].username)
+                if (username == modList[userid].username[unum])
+                    namechange=false;
+            if (namechange)
+                modList[userid].username.push(username);
             modupdate = true;
         }
     });
@@ -468,10 +661,15 @@ SALR.prototype.skimModerators = function() {
         var userid = jQuery(this).attr('href').split('userid=')[1];
         var username = jQuery(this).html();
         if (modList[userid] == null) {
-            modList[userid] = {'username' : username, 'mod' : 'M'};
+            modList[userid] = {'username' : [username], 'mod' : 'M'};
             modupdate = true;
         } else if (modList[userid].username != username) {
-            modList[userid].username = username;
+            var namechange=true;
+            for (unum in modList[userid].username)
+                if (username == modList[userid].username[unum])
+                    namechange=false;
+            if (namechange)
+                modList[userid].username.push(username);
             modupdate = true;
         }
     });
@@ -528,6 +726,27 @@ SALR.prototype.displaySinglePostLink = function() {
     });
 };
 
+ /**
+ * Display Rap Sheet link under a users post
+ *
+ *
+ */
+SALR.prototype.displayRapSheetLink = function() {
+    var that = this;
+    
+    var getUserID = function(element) {
+        var queryString = jQuery('li:first > a', element).attr('href');
+
+        // Holy hardcore string manipulation, Batman!
+        return (queryString.split('&')[1]).split('=')[1];
+    };
+
+    jQuery('ul.profilelinks').each(function() {
+        jQuery(this).append('<li><a href="http://forums.somethingawful.com/banlist.php?userid=' + getUserID(jQuery(this)) + '">Rap Sheet</a></li>');
+    });
+}
+
+
 /**
  * Open the list of who posted in a thread
  *
@@ -567,7 +786,7 @@ SALR.prototype.renderOpenUpdatedThreadsButton = function() {
             jQuery('tr.thread').each( function() {
                 var img_split = jQuery('td.star > img', this).attr('src').split('/');
                 var img_name = img_split[img_split.length-1];
-                if (other.settings.ignore_bookmark_star != img_name) {
+                if (other.settings.ignoreBookmarkStar != img_name) {
                     if (jQuery('a[class*=count]', this).length > 0) {
                         var href = jQuery('a[class*=count]', this).attr('href');
                         postMessage({ 'message': 'OpenTab',
@@ -634,6 +853,11 @@ SALR.prototype.highlightOPPosts = function() {
             'border-collapse' : 'collapse',
             'background-color' : that.settings.highlightOPColor
         });
+    });
+    jQuery('dt.author.op').each(function() {
+        jQuery(this).after(
+            '<dd style="color: #07A; font-weight: bold; ">Thread Poster</dd>'
+        );
     });
 };
 
@@ -705,7 +929,9 @@ SALR.prototype.highlightModAdminForumDisplay = function() {
         var username = jQuery(this).html();
         // No userid in this column so we have to loop
         for(userid in modList) {
-            if (username == modList[userid].username) {
+            for (unum in modList[userid].username) {
+                if (username != modList[userid].username[unum])
+                    continue;
                 var color;
                 switch (modList[userid].mod) {
                     case 'M':
@@ -731,25 +957,37 @@ SALR.prototype.highlightModAdminShowThread = function() {
     var that = this;
 
     if (this.settings.highlightModAdminUsername != 'true') {
-        jQuery('table.post:has(dt.author:has(img[title="Moderator"])) td').each(function () {
+        jQuery('table.post:has(dt.role-mod) td').each(function () {
             jQuery(this).css({
                 'border-collapse' : 'collapse',
                 'background-color' : that.settings.highlightModeratorColor
             });
+            jQuery('dt.author', this).after(
+                '<dd style="font-weight: bold; ">Forum Moderator</dd>'
+            );
         });
-        jQuery('table.post:has(dt.author:has(img[title="Admin"])) td').each(function () {
+        jQuery('table.post:has(dt.role-admin) td').each(function () {
             jQuery(this).css({
                 'border-collapse' : 'collapse',
                 'background-color' : that.settings.highlightAdminColor
             });
+            jQuery('dt.author', this).after(
+                '<dd style="font-weight: bold; ">Forum Moderator</dd>'
+            );
         });
     } else {
-        jQuery('dt.author > img[title="Moderator"]').each(function() {
-            jQuery(this).parent().css('color', that.settings.highlightModeratorColor);
+        jQuery('dt.role-mod').each(function() {
+            jQuery(this).css('color', that.settings.highlightModeratorColor);
+            jQuery(this).after(
+                '<dd style="font-weight: bold; color: ' + that.settings.highlightModeratorColor+ '">Forum Moderator</dd>'
+            );
         });
 
-        jQuery('dt.author > img[title="Admin"]').each(function() {
-            jQuery(this).parent().css('color', that.settings.highlightAdminColor);
+        jQuery('dt.role-admin').each(function() {
+            jQuery(this).css('color', that.settings.highlightAdminColor);
+            jQuery(this).after(
+                '<dd style="font-weight: bold; color: ' + that.settings.highlightAdminColor+ '">Forum Administrator</dd>'
+            );
         });
     }
 };
@@ -785,6 +1023,107 @@ SALR.prototype.highlightModAdminWhoPosted = function() {
 };
 
 /**
+ * Update the list of forums from the index.
+ */
+SALR.prototype.updateForumsListIndex = function() {
+    var forums = new Array();
+
+    forums.push({ 'name'   : 'Private Messages',
+                  'id'     : 'pm',
+                  'level'  : 0,
+                  'sticky' : false,
+                });
+    forums.push({ 'name'   : 'User Control Panel',
+                  'id'     : 'cp',
+                  'level'  : 0,
+                  'sticky' : false,
+                });
+    forums.push({ 'name'   : 'Search Forums',
+                  'id'     : 'search',
+                  'level'  : 0,
+                  'sticky' : false,
+                });
+    forums.push({ 'name'   : 'Forums Home',
+                  'id'     : 'home',
+                  'level'  : 0,
+                  'sticky' : false,
+                });
+    forums.push({ 'name'   : 'Leper\'s Colony',
+                  'id'     : 'lc',
+                  'level'  : 0,
+                  'sticky' : false,
+                });
+    forums.push({ 'name'   : '',
+                  'id'     : '',
+                  'level'  : -1,
+                  'sticky' : false,
+                });
+
+    var stickyList = new Array();
+    if (this.settings.forumsList != null) {
+        var oldForums = JSON.parse(this.settings.forumsList);
+        for(i in oldForums) {
+            stickyList[oldForums[i].id] = oldForums[i].sticky;
+        }
+    }
+
+    jQuery('table#forums tr').each(function() {
+        var row = this;
+
+        // Categories
+        jQuery('th.category a', this).each(function() {
+            var match = jQuery(this).attr('href').match(/forumid=(\d+)/);
+            var forumid = -1;
+            var title = jQuery(this).text();
+            if (match != null)
+                forumid = match[1];
+
+            forums.push({ 'name'   : title,
+                          'id'     : forumid,
+                          'level'  : 0,
+                          'sticky' : (stickyList[forumid]==true),
+                        });
+        });
+
+        // Forums
+        jQuery('td.title > a', this).each(function() {
+            var match = jQuery(this).attr('href').match(/forumid=(\d+)/);
+            var forumid = -1;
+            var title = jQuery(this).text();
+            if (match != null)
+                forumid = match[1];
+
+            forums.push({ 'name'   : title,
+                          'id'     : forumid,
+                          'level'  : 1,
+                          'sticky' : (stickyList[forumid]==true),
+                        });
+
+            // Subforums
+            jQuery('div.subforums a', jQuery(this).parent()).each(function() {
+                var match = jQuery(this).attr('href').match(/forumid=(\d+)/);
+                var forumid = -1;
+                var title = jQuery(this).text();
+                if (match != null)
+                    forumid = match[1];
+                
+                forums.push({ 'name'   : title,
+                              'id'     : forumid,
+                              'level'  : 2,
+                              'sticky' : (stickyList[forumid]==true),
+                            });
+            });
+        });
+    });
+
+    if (forums.length > 0) {
+        postMessage({ 'message': 'ChangeSetting',
+                           'option' : 'forumsList',
+                           'value'  : JSON.stringify(forums) });
+    }
+};
+
+/**
  * Update the list of forums.
  */
 SALR.prototype.updateForumsList = function() {
@@ -798,20 +1137,31 @@ SALR.prototype.updateForumsList = function() {
         }
     }
 
+    var numSeps = 0;
     jQuery('select[name="forumid"]>option').each(function() {
         if (this.text == "Please select one:")
             return;
 
-        var sticky = false;
-        if (stickyList[this.value] == true)
-            sticky = true;
+        var splitUp = this.text.match(/^(-*)(.*)/);
+        var indent = splitUp[1].length/2;
+        if (indent >= 10) {
+            numSeps++;
+            // Ignore first separator
+            if (numSeps == 1)
+                return;
+            indent=-1;
+        }
+        var title = splitUp[2];
 
-        forums.push({ 'name' : this.text,
-                       'id'  : this.value,
-                       'sticky'  : sticky });
+        forums.push({ 'name'   : title,
+                      'id'     : this.value,
+                      'level'  : indent,
+                      'sticky' : (stickyList[this.value]==true),
+                    });
     });
 
-    if (forums.length > 0) {
+    // Make sure drop down contains full list of forums
+    if (forums.length > 15) {
         postMessage({ 'message': 'ChangeSetting',
                            'option' : 'forumsList',
                            'value'  : JSON.stringify(forums) });
@@ -842,7 +1192,9 @@ SALR.prototype.displayUserNotes = function() {
                   "3882420" : {'text' : 'SALR Developer', 'color' : '#9933FF'}, // Onoj
                   "143511" : {'text' : 'SALR Developer', 'color' : '#9933FF'},  // Sneaking Mission
                   "156041" : {'text' : 'SALR Developer', 'color' : '#9933FF'},  // wmbest2
-                  "115838" : {'text' : 'SALR Developer', 'color' : '#9933FF'}}; // Ferg
+                  "115838" : {'text' : 'SALR Developer', 'color' : '#9933FF'}, // Ferg
+                  "101547" : {'text' : 'SALR Developer', 'color' : '#9933FF'}, // Rohaq
+                }; 
         postMessage({ 'message': 'ChangeSetting',
                            'option' : 'userNotes',
                            'value'  : JSON.stringify(notes) });
@@ -924,6 +1276,73 @@ SALR.prototype.boxQuotes = function() {
 };
 
 /**
+*   Automatically hide long quotes
+*
+ *  @author Scott Lyons (Captain Capacitor)
+*/
+SALR.prototype.tldrQuotes = function() {
+    var that = this;
+    
+    function tldrHideQuote(obj) {
+        if(obj.currentTarget != undefined)
+            obj = this;
+        var blockquote = jQuery("blockquote:last", obj);
+        var hidden = jQuery(obj).data("tldrHidden");
+        var clickText = jQuery("span.tldrclick", obj);
+        
+        if(hidden == true)
+        {
+            jQuery("span.tldr", obj).remove();
+            blockquote.css({display:"block"});
+            clickText.text("Double-Click quote to collapse");
+        }
+        else
+        {
+            var imageCount = jQuery("img", blockquote).length;
+            var wordCount = blockquote.text().split(" ").length;
+            
+            var imageStr, wordStr;
+            if(imageCount == 1)
+                imageStr = "1 image";
+            else if(imageCount > 1)
+                imageStr = imageCount + " images";
+            
+            if(wordCount == 1)
+                wordStr = "1 word";
+            else if(wordCount > 1)
+                wordStr = wordCount + " words";
+            
+            var tldrSpan = "<span class='tldr'><strong>TLDR:</strong> ";
+            if(wordCount > 0)
+                tldrSpan+= wordStr;
+            if(wordCount > 0 && imageCount > 0)
+                tldrSpan+= " and ";
+            if(imageCount > 0)
+                tldrSpan+= imageStr;
+            tldrSpan+="</span>";
+            
+            blockquote.before(tldrSpan);
+
+            blockquote.css({display:"none"});
+            clickText.text("Double-Click quote to expand");
+        }
+        jQuery(obj).data("tldrHidden", !hidden);
+    }
+    
+    jQuery("div.bbc-block").each(function(i, obj){
+        jQuery(obj).data("tldrHidden", false);
+        jQuery(obj).dblclick(tldrHideQuote);
+        
+        jQuery("h4", obj).before("<span class='tldrclick' style='font-size: 70%; text-transform: uppercase; float: right; margin: 2px; font-weight: bold;'>Double-Click quote to collapse</span>");
+        
+        if(that.settings.autoTLDR == 'true' && jQuery(obj).height() > 400){
+            tldrHideQuote(obj);
+            jQuery("span.tldrclick", obj).text("Double-Click quote to expand");
+        }
+    });
+};
+
+/**
  * Highlight the user's username in posts
  */
 SALR.prototype.highlightOwnUsername = function() {
@@ -953,6 +1372,12 @@ SALR.prototype.highlightOwnQuotes = function() {
     });
 };
 
+SALR.prototype.appendImage = function(original, thumbnail, type) {
+    if (this.quickReply) {
+        this.quickReply.appendImage(original, thumbnail, type);
+    }
+};
+
 /**
  * Binds quick-reply box to reply/quote buttons
  *
@@ -963,16 +1388,12 @@ SALR.prototype.bindQuickReply = function() {
     jQuery('a > img[alt="Quote"]').each(function() {
         jQuery(this).parent().attr('href', 'javascript:;');
 
-        var parentTable = jQuery(this).parent().parent().parent().parent().parent().parent().parent();
-
-        // Query for the username
-        var username = jQuery('tr > td.userinfo > dl > dt.author', parentTable).html();
-        // Query for the quote
-        var quote = jQuery('tr > td.postbody', parentTable).clone();
+        var parentTable = jQuery(this).parents('table.post');
+        var postid = parentTable.attr('id').substr(4);
 
         // Bind the quick reply box to the button
         jQuery(this).parent().click(function() {
-            that.quickReply.appendQuote(username, quote);
+            that.quickReply.appendQuote(postid);
             that.quickReply.show();
 
             /***********TODO: FIX THIS*********
@@ -982,6 +1403,21 @@ SALR.prototype.bindQuickReply = function() {
                 this.quickReply.show();
             }
             **********************************/
+        });
+    });
+
+    jQuery('a > img[alt="Edit"]').each(function() {
+        jQuery(this).parent().attr('href', 'javascript:;');
+
+        var parentTable = jQuery(this).parents('table.post');
+        var postid = parentTable.attr('id').substr(4);
+
+        // Bind the quick edit box to the button
+        jQuery(this).parent().click(function() {
+            var subscribe = jQuery('.subscribe > a').html().indexOf('Unbookmark') == 0 ? true : false;
+
+            that.quickReply.editPost(postid, subscribe);
+            that.quickReply.show();
         });
     });
     
@@ -1183,4 +1619,17 @@ SALR.prototype.addRapSheetToProfile = function() {
     jQuery('a',el).text('Rap Sheet');
     link.parent().append(' ');
     link.parent().append(el);
+}
+
+/**
+ * Highlight forums cancer posts with a light gray and set opacity to
+ * 1.0
+ *
+ */
+SALR.prototype.fixCancerPosts = function() {
+    jQuery('.cancerous').each(function() {
+        jQuery(this).css({
+            'opacity': '1.0'
+        });
+    });
 }

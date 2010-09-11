@@ -32,11 +32,15 @@ function QuickReplyBox(forum_post_key, base_image_uri, bookmark) {
     this.forum_post_key = forum_post_key;
     this.base_image_uri = base_image_uri;
     this.bookmark = bookmark;
+    this.reply_url = 'http://forums.somethingawful.com/newreply.php';
+    this.edit_url = 'http://forums.somethingawful.com/editpost.php';
 
     this.quickReplyState = {
         expanded: false,
         visible: false,
-        sidebar_visible: false
+        sidebar_visible: false,
+        topbar_visible: false,
+        wait_for_quote: false
     };
 
     // TODO: Pull these from the extension, cache them there
@@ -77,10 +81,17 @@ QuickReplyBox.prototype.create = function(username, quote) {
                 '   <div id="sidebar-list">' +
                 '   </div>' +
                 '</div>' +
+                '<div id="top-bar">' +
+                '   <div id="topbar-preview">' +
+                '      <div id="preview-content">' +
+                '      </div>' +
+                '   </div>' +
+                '</div>' + 
                 '<div id="quick-reply"> ' + 
-                '   <form enctype="multipart/form-data" action="newreply.php" name="vbform" method="POST" onsubmit="return validate(this)">' +
-                '       <input type="hidden" name="action" value="postreply">' + 
+                '   <form id="quick-reply-form" enctype="multipart/form-data" action="newreply.php" name="vbform" method="POST" onsubmit="return validate(this)">' +
+                '       <input id="quick-reply-action" type="hidden" name="action" value="postreply">' + 
                 '       <input type="hidden" name="threadid" value="' + findThreadID() + '">' + 
+                '       <input id="quick-reply-postid" type="hidden" name="postid" value="">' + 
                 '       <input type="hidden" name="formkey" value="' + this.forum_post_key + '">' + 
                 '       <input type="hidden" name="form_cookie" value="formcookie">' + 
                 '       <div id="title-bar">' + 
@@ -96,28 +107,44 @@ QuickReplyBox.prototype.create = function(username, quote) {
                 '       <div id="tag-menu" class="sidebar-menu">' +
                 '           <img src="' + this.base_image_uri + "quick-reply-tags.gif" + '" />' +
                 '       </div>' +
-                /************************WAFFLE IMAGES************************
+                '       <div id="imgur-images-menu" class="sidebar-menu">' +
+                '           <img src="' + this.base_image_uri + "quick-reply-imgur.png" + '" />' +
+                '       </div>' +
+                /**********************WAFFLE IMAGES IS DOWN*******************
                 '       <div id="waffle-images-menu" class="sidebar-menu">' +
                 '           <img src="' + this.base_image_uri + "quick-reply-waffle.gif" + '" />' +
                 '       </div>' +
-                *************************************************************/
+                **************************************************************/
                 '       <div id="post-input-field">' +
                 '<textarea name="message" rows="18" size="10" id="post-message">' +
                 '</textarea>' +
                 '       </div>' +
                 '       <div id="post-options">' +
+                '           <label>' +
                 '           <input type="checkbox" name="parseurl" value="yes" checked>' +
                 '              <span class="post-options">Parse URLs</span>' +
                 '           </input>' + 
+                '           </label>' + 
+                '           <label>' +
                 '           <input type="checkbox" id="quickReplyBookmark" name="bookmark" value="yes">' + 
                 '              <span class="post-options">Bookmark thread</span>' +
                 '           </input>' + 
+                '           </label>' + 
+                '           <label>' +
                 '           <input type="checkbox" name="disablesmilies" value="yes">' + 
                 '               <span class="post-options">Disable smilies</span>' +
                 '           </input>' + 
+                '           </label>' + 
+                '           <label>' +
                 '           <input type="checkbox" name="signature" value="yes">' + 
                 '               <span class="post-options">Show signature</span>' +
                 '          </input>' + 
+                '           </label>' + 
+                '           <label>' +
+                '           <input type="checkbox" id="live-preview" value="yes">' + 
+                '               <span class="post-options">Show live preview</span>' +
+                '          </input>' + 
+                '           </label>' + 
                 '       </div>' +
                 '       <div id="submit-buttons">' +
                 '           <input type="submit" class="bginput" name="preview" value="Preview Reply">' + 
@@ -169,6 +196,10 @@ QuickReplyBox.prototype.create = function(username, quote) {
         });
     });
 
+    jQuery('#live-preview').change(function() {
+        that.toggleTopbar();
+    });
+
     jQuery('div.sidebar-menu-item').live('click', function() {
         var selected_item = jQuery('div.menu-item-code', this).first().html();
 
@@ -207,12 +238,21 @@ QuickReplyBox.prototype.show = function() {
 
 QuickReplyBox.prototype.hide = function() {
     jQuery('#side-bar').first().hide();
+    jQuery('#top-bar').first().hide();
+    jQuery('#live-preview').attr('checked', '');
     if (salr_client.pageNavigator) {
         salr_client.pageNavigator.display();
     }
     jQuery(document).trigger('enableSALRHotkeys');
     jQuery('#quick-reply').hide("slow");
     jQuery('#post-message').val('');
+
+    // Return to quick reply mode
+    jQuery('div#title-bar').text('Quick Reply');
+    jQuery('form#quick-reply-form').attr('action', 'newreply.php');
+    jQuery('input#quick-reply-action').val('postreply');
+    jQuery('input#quick-reply-postid').val('');
+
     this.quickReplyState.expanded = false;
 };
 
@@ -223,7 +263,7 @@ QuickReplyBox.prototype.fetchFormCookie = function(threadid) {
         return jQuery('input[name="form_cookie"]', html).val();
     };
 
-    jQuery.get('http://forums.somethingawful.com/newreply.php',
+    jQuery.get(this.reply_url,
                {
                    action: 'newreply',
                    threadid: threadid
@@ -233,106 +273,98 @@ QuickReplyBox.prototype.fetchFormCookie = function(threadid) {
                });
 };
 
+QuickReplyBox.prototype.updatePreview = function() {
+    var parser = new PreviewParser(jQuery('#post-message').val(), this.emotes);
+    jQuery('#preview-content').html(parser.fetchResult());
+
+    var content = document.getElementById('topbar-preview');
+    content.scrollTop = content.scrollHeight;
+};
+
 QuickReplyBox.prototype.appendText = function(text) {
     var current_message = jQuery('#post-message').val();
 
     jQuery('#post-message').val(current_message + text);
+
+    this.updatePreview();
 };
 
-QuickReplyBox.prototype.appendQuote = function(username, quote) {
+QuickReplyBox.prototype.prependText = function(text) {
+    var current_message = jQuery('#post-message').val();
 
-    username = username || false;
-    quote = this.parseQuote(quote) || false;
+    jQuery('#post-message').val(text + current_message);
 
-    var quote_string = '';
-
-    if (username && quote) {
-        re = RegExp(/\<.*\> &nbsp;/);
-        username = username.replace(re, '');
-        var current_message = jQuery('#post-message').val();
-
-        quote_string += '[quote="' + username + '"]\n' + jQuery.trim(quote) + '\n[/quote]\n\n';
-
-        jQuery('#post-message').val(current_message + quote_string);
-    }
+    this.updatePreview();
 };
 
-/********Add all quote parsers here*************/
-QuickReplyBox.prototype.parseQuote = function(quote_string) {
-    var result = quote_string;
+QuickReplyBox.prototype.appendQuote = function(postid) {
     var that = this;
 
-    // Remove any quote blocks within the quote
-    jQuery('div.bbc-block', result).each(function() {
-        jQuery(this).remove();
-    });
+    if (!this.quickReplyState.expanded)
+        this.quickReplyState.wait_for_quote = true;
 
-    // Remove signatures
-    jQuery('p.signature', result).each(function() {
-        jQuery(this).remove();
-    });
+    // Call up SA's quote page
+    jQuery.get(this.reply_url,
+                {
+                    action: 'newreply',
+                    postid: postid
+                },
+                function(response) {
+                    // Pull quoted text from reply box
+                    var textarea = jQuery(response).find('textarea[name=message]')
+                    var quote = '';
+                    if (textarea.length)
+                        quote = textarea.val();
 
-    // Remove any "Edited by" messages
-    jQuery('p.editedby', result).each(function() {
-        jQuery(this).remove();
-    });
-
-    jQuery('img', result).each(function() {
-        var emoticon = that.parseSmilies(jQuery(this).attr('title'));
-
-        if (emoticon) {
-            jQuery(this).replaceWith(emoticon);
-        } else {
-            var image_path = jQuery(this).attr('src');
-            var match = image_path.match(/^attachment\.php\?postid=(\d+)$/);
-            if (match)
-                image_path = 'http://forums.somethingawful.com/'+image_path;
-            jQuery(this).replaceWith('[timg]' + image_path + '[/timg]');
-        }
-    });
-
-    jQuery('a', result).each(function() {
-        var label = jQuery(this).html();
-        var url = jQuery(this).attr('href');
-
-        if (label == '') {
-            jQuery(this).replaceWith('[url]' + url + '[/url]');
-        } else {
-            jQuery(this).replaceWith('[url=' + url + ']' + label + '[/url]');
-        }
-    });
-
-    return this.escapeHtml(result.text());
+                    if (that.quickReplyState.wait_for_quote) {
+                        that.prependText(quote);
+                        that.quickReplyState.wait_for_quote=false;
+                    } else {
+                        that.appendText(quote);
+                    }
+                });
 };
 
-QuickReplyBox.prototype.parseSmilies = function(quote_string) {
-    var result = false;
-    var end_index = quote_string.length - 1;
+QuickReplyBox.prototype.appendImage = function(original, thumbnail, type) {
+    var result = null;
 
-    var smilies = {
-        ':(': '',
-        ':)': '',
-        ':D': '',
-        ';)': '',
-        ';-*': '',
-    };
-
-    if (quote_string[0] == ':' && quote_string[end_index] == ':') {
-        result = quote_string;
-    } else if (quote_string in smilies) {
-        result = quote_string;
+    if (type == 'thumbnail') {
+        result = '[timg]' + thumbnail + '[/timg]\n';
+        result += '[url=' + original + ']Click here to view the full image[/url]\n';
+    } else {
+        result = '[img]' + original + '[/img]\n';
     }
 
-    return result;
+    this.appendText(result);
 };
 
-QuickReplyBox.prototype.escapeHtml = function(html) {
-    return html.
-        replace(/&/gmi, '&amp;').
-        replace(/"/gmi, '&quot;').
-        replace(/>/gmi, '&gt;').
-        replace(/</gmi, '&lt;')
-}
+QuickReplyBox.prototype.editPost = function(postid, subscribe) {
+    var that = this;
+
+    if (subscribe) {
+        jQuery('input#quickReplyBookmark').attr('checked', true);
+    }
+
+    // Call up SA's quote page
+    jQuery.get(this.edit_url,
+                {
+                    action: 'editpost',
+                    postid: postid
+                },
+                function(response) {
+                    // Pull quoted text from reply box
+                    var textarea = jQuery(response).find('textarea[name=message]')
+                    var edit = '';
+                    if (textarea.length)
+                        edit = textarea.val();
+                    jQuery('#post-message').val(edit);
+                });
+
+    jQuery('div#title-bar').text('Quick Edit');
+    jQuery('form#quick-reply-form').attr('action', 'editpost.php');
+    jQuery('input#quick-reply-action').val('updatepost');
+    jQuery('input#quick-reply-postid').val(postid);
+};
 
 QuickReplyBox.prototype.toggleView = function() {
 
@@ -345,20 +377,27 @@ QuickReplyBox.prototype.toggleView = function() {
     if(this.quickReplyState.expanded) {
         var hideBox = function() {
             jQuery('#side-bar').first().hide();
+            jQuery('#top-bar').first().hide();
+            jQuery('#live-preview').attr('checked', '');
             quick_reply_box.animate( { height: min } );
             (imgId).attr("src", that.base_image_uri + "quick-reply-rollup.gif");
             that.quickReplyState.expanded = false;
         };
 
-        // If the sidebar is open when we're trying to rolldown the box, animate
-        // the sidebar as we tuck it away
+        // Keep trying to close the sidebar until we're ready
         if(this.quickReplyState.sidebar_visible) {
             jQuery('#side-bar').animate( { left: '-=200px' }, 500, function() {
                 that.quickReplyState.sidebar_visible = null;
                 if (salr_client.pageNavigator) {
                     salr_client.pageNavigator.display();
                 }
-                hideBox();
+
+                that.toggleView();
+            });
+        } else if (this.quickReplyState.topbar_visible) {
+            jQuery('#top-bar').animate( { bottom: '-=320px' }, 500, function() {
+                that.quickReplyState.topbar_visible = false;
+                that.toggleView();
             });
         } else {
             hideBox();
@@ -396,6 +435,9 @@ QuickReplyBox.prototype.toggleSidebar = function(element) {
         case 'waffle-images-menu':
             populate_method = this.setWaffleImagesSidebar;
             break;
+        case 'imgur-images-menu':
+            populate_method = this.setImgurImagesSidebar;
+            break;
     }
 
     // If there is a sidebar open, and the button clicked is the same
@@ -428,8 +470,32 @@ QuickReplyBox.prototype.toggleSidebar = function(element) {
 
 };
 
+QuickReplyBox.prototype.toggleTopbar = function() {
+    top_bar = jQuery('#top-bar');
+
+    if (!top_bar.is(':visible')) {
+        top_bar.css('display', 'block');
+    }
+    
+    if (this.quickReplyState.topbar_visible) {
+        top_bar.animate( { bottom: '-=320px' } );
+        if (salr_client.pageNavigator) {
+            salr_client.pageNavigator.display();
+        }
+        this.quickReplyState.topbar_visible = false;
+    } else {
+        top_bar.animate( { bottom: '+=320px' } );
+        this.quickReplyState.topbar_visible = true;
+    }
+};
+
 QuickReplyBox.prototype.notify = function(emotes) {
+    var that = this;
     this.emotes = emotes;
+
+    jQuery('#post-message').keyup(function() {
+        that.updatePreview();
+    });
 
     this.setEmoteSidebar();
 };
@@ -470,7 +536,7 @@ QuickReplyBox.prototype.setBBCodeSidebar = function() {
 QuickReplyBox.prototype.setWaffleImagesSidebar = function() {
     html = '<div id="dropzone">' +
            '    <h1>Drop files here</h1>' +
-           '    <p>To add them as attachments</p>' +
+           '    <p>To upload them to Waffle Images</p>' +
            '    <input type="file" multiple="true" id="filesUpload" />' +
            '</div>';
 
@@ -478,65 +544,20 @@ QuickReplyBox.prototype.setWaffleImagesSidebar = function() {
 
     this.sidebar_html = html;
 
-    $('div#dropzone').filedrop({
-        url: 'http://waffleimages.com/upload',              // upload handler, handles each file separately
-        paramname: 'file',          // POST parameter name used on serverside to reference file
-        data: { 
-            mode: 'file',           // send POST variables
-            tg_format: 'xml',
-        },
-        error: function(err, file) {
-            switch(err) {
-                case 'BrowserNotSupported':
-                    alert('browser does not support html5 drag and drop')
-                    break;
-                case 'TooManyFiles':
-                    // user uploaded more than 'maxfiles'
-                    break;
-                case 'FileTooLarge':
-                    // program encountered a file whose size is greater than 'maxfilesize'
-                    // FileTooLarge also has access to the file which was too large
-                    // use file.name to reference the filename of the culprit file
-                    break;
-                default:
-                    break;
-            }
-        },
-        maxfiles: 25,
-        maxfilesize: 20,    // max file size in MBs
-        dragOver: function() {
-            // user dragging files over #dropzone
-        },
-        dragLeave: function() {
-            // user dragging files out of #dropzone
-        },
-        docOver: function() {
-            // user dragging files anywhere inside the browser document window
-        },
-        docLeave: function() {
-            // user dragging files out of the browser document window
-        },
-        drop: function() {
-            // user drops file
-        },
-        uploadStarted: function(i, file, len){
-            // a file began uploading
-            // i = index => 0, 1, 2, 3, 4 etc
-            // file is the actual file of the index
-            // len = total files user dropped
-        },
-        uploadFinished: function(i, file, response, time) {
-            // response is the data you got back from server in JSON format.
-            console.log(response);
-        },
-        progressUpdated: function(i, file, progress) {
-            // this function is used for large files and updates intermittently
-            // progress is the integer value of file being uploaded percentage to completion
-        },
-        speedUpdated: function(i, file, speed) {
-            // speed in kb/s
-        }
+    jQuery('input#filesUpload').change(function(event) {
+        console.log(jQuery(this).get(0).files);
+        postMessage({
+            'message': 'UploadWaffleImages',
+            'file': jQuery(this).get(0).files[0]
+        });
     });
+};
+
+QuickReplyBox.prototype.setImgurImagesSidebar = function() {
+    html = '<iframe src="' + chrome.extension.getURL('/') + 'imgur-upload.html" width="162" height="245" frameborder="0"></iframe>';
+    jQuery('#sidebar-list').html(html);
+
+    this.sidebar_html = html;
 };
 
 QuickReplyBox.prototype.isExpanded = function() {

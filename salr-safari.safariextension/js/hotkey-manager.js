@@ -105,6 +105,10 @@ HotKeyManager.prototype.bindHotKeys = function() {
                     break;
                 case 101:
                     // Quick edit current post
+                    if (findCurrentPage() == 'showthread.php') {
+                        that.editCurrentPost();
+                        event.preventDefault();
+                    }
                     break;
                 case 114:
                     // TODO: Conditionalize on quick reply being enabled
@@ -136,14 +140,14 @@ HotKeyManager.prototype.nextPage = function() {
     switch(findCurrentPage()) {
         case 'forumdisplay.php':
         case 'showthread.php':
-            this.rootPageType = (findCurrentPage() == 'forumdisplay.php') ? 'forumid' : 'threadid';
-            this.basePageID = findForumID();
-            this.currentPage = Number(jQuery('span.curpage').html());
-            if (this.currentPage <= 0)
-                this.currentPage = 1;
-            if (this.currentPage < this.pageCount)
-                jumpToPage(buildUrl(this.rootPageType, this.basePageID, this.currentPage + 1));
-            break;
+            var currentPage = Number(jQuery('span.curpage').html());
+            if (currentPage <= 0)
+                currentPage = 1;
+
+            if (currentPage >= this.pageCount)
+                return;
+
+            jumpToPage(nextPageUrl());
     }
 };
 
@@ -155,14 +159,14 @@ HotKeyManager.prototype.previousPage = function() {
     switch(findCurrentPage()) {
         case 'forumdisplay.php':
         case 'showthread.php':
-            this.rootPageType = (findCurrentPage() == 'forumdisplay.php') ? 'forumid' : 'threadid';
-            this.basePageID = findForumID();
-            this.currentPage = Number(jQuery('span.curpage').html());
-            if (this.currentPage <= 0)
-                this.currentPage = 1;
-            if (this.currentPage > 1)
-                jumpToPage(buildUrl(this.rootPageType, this.basePageID, this.currentPage - 1));
-            break;
+            var currentPage = Number(jQuery('span.curpage').html());
+            if (currentPage <= 0)
+                currentPage = 1;
+
+            if (currentPage <= 1)
+                return;
+
+            jumpToPage(prevPageUrl());
     }
 };
 
@@ -282,23 +286,44 @@ HotKeyManager.prototype.quoteCurrentPost = function() {
     if (this.current_post == -1) {
         return;
     }
+    if (!this.quickReply)
+        return;
 
     var current_post = jQuery('div#thread > table.post').eq(this.current_post);
-    var username = jQuery('tr > td.userinfo > dl > dt.author', current_post).html();
-    // Query for the quote
-    var quote = jQuery('tr > td.postbody', current_post).clone();
+    var postid = current_post.attr('id').substr(4);
 
-    this.quickReply.appendQuote(username, quote);
+    this.quickReply.appendQuote(postid);
+    this.quickReply.show();
+};
+
+HotKeyManager.prototype.editCurrentPost = function() {
+    if (this.current_post == -1) {
+        return;
+    }
+    if (!this.quickReply)
+        return;
+
+    var current_post = jQuery('div#thread > table.post').eq(this.current_post);
+    if (current_post.has('img[alt="Edit"]').length == 0)
+        return;
+    var postid = current_post.attr('id').substr(4);
+    var subscribe = jQuery('.subscribe > a').html().indexOf('Unbookmark') == 0 ? true : false;
+
+    this.quickReply.editPost(postid, subscribe);
     this.quickReply.show();
 };
 
 HotKeyManager.prototype.displayQuickReply = function() {
+    if (!this.quickReply)
+        return;
     if (findCurrentPage() == 'showthread.php') {
         this.quickReply.show();
     }
 };
 
 HotKeyManager.prototype.hideQuickReply = function() {
+    if (!this.quickReply)
+        return;
     if (findCurrentPage() == 'showthread.php') {
         this.quickReply.hide();
     }

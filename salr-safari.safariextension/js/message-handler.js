@@ -24,42 +24,119 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
- * Message event listener so that we can talk to the content-script
- *
- */
-function handleScriptQuery(message_event) {
-    var data = message_event.message;
-
-    switch (data.message) {
-        case 'OpenSettings':
-            onToolbarClick();
-            break;
-        case 'ChangeSetting':
-            safari.extension.settings.setItem(data.option, data.value);
-            break;
-        case 'OpenTab':
-            openNewTab(data.url);
-            break;
-        case 'GetPageSettings':
-        case 'GetSALRSettings':
-        case 'GetForumsJumpList':
-            // Respond with the username
-            message_event.target.page.dispatchMessage('result', getPageSettings());
-            break;
-        case 'ChangeSALRSetting':
-            safari.extension.settings.setItem(data.option, data.value);
-            break;
-        case 'log':
-        default:
-            console.log(data);
-    }
-}
-
-/**
  * External message event listener
  *
  */
-safari.application.addEventListener('message', handleScriptQuery, false);
+chrome.extension.onConnectExternal.addListener(function(port) {
+    port.onMessage.addListener(function(data) {
+        switch (data.message) {
+            case 'GetForumsJumpList':
+            case 'GetSALRSettings':
+                port.postMessage(getPageSettings());
+                break;
+            case 'ChangeSALRSetting':
+                localStorage.setItem(data.option, data.value);
+                break;
+        }
+    });
+});
+
+/**
+ * Message event listener so that we can talk to the content-script
+ *
+ */
+chrome.extension.onConnect.addListener(function(port) {
+    port.onMessage.addListener(function(data) {
+        switch (data.message) {
+            case 'OpenSettings':
+                onToolbarClick();
+                break;
+            case 'ChangeSetting':
+                localStorage.setItem(data.option, data.value);
+                break;
+            case 'OpenTab':
+                openNewTab(data.url);
+                break;
+            case 'ShowPageAction':
+                // Register the tab with the tagging page action
+                chrome.pageActions.enableForTab("forums_jump_list",
+                                                { 
+                                                    tabId: port.tab.id,
+                                                    url: port.tab.url,
+                                                    title: "Click to open forum jump list",
+                                                    iconId: 0
+                                                });
+
+                break;
+            case 'GetPageSettings':
+            case 'GetSALRSettings':
+            case 'GetForumsJumpList':
+                port.postMessage(getPageSettings());
+                break;
+            case 'ChangeSALRSetting':
+                localStorage.setItem(data.option, data.value);
+            case 'UploadWaffleImages':
+                uploadWaffleImagesFile(data);
+                break;
+            case 'AppendUploadedImage':
+                console.log('Got request!');
+                chrome.tabs.getSelected(null, function(tab) {
+                    chrome.tabs.sendRequest(tab.id, data, function(response) {
+                        console.log(response.farewell);
+                    });
+                });
+                break;
+            case 'log':
+            default:
+                console.log(data);
+		}
+    });
+});
+
+// New assoc array for storing default settings.
+var defaultSettings = [];
+defaultSettings['userQuote']                    = '#a2cd5a';
+defaultSettings['darkRead']                     = '#6699cc';
+defaultSettings['lightRead']                    = '#99ccff';
+defaultSettings['darkNewReplies']               = '#99cc99';
+defaultSettings['lightNewReplies']              = '#ccffcc';
+defaultSettings['youtubeHighlight']             = '#ff00ff';
+defaultSettings['displayConfigureSalr']         = 'true';
+defaultSettings['highlightFriendsColor']        = '#f2babb';
+defaultSettings['highlightSelfColor']           = '#f2babb';
+defaultSettings['highlightAdminColor']          = '#ff7256';
+defaultSettings['highlightModeratorColor']      = '#b4eeb4';
+defaultSettings['inlinePostCounts']             = 'false';
+defaultSettings['displayCustomButtons']         = 'true';
+defaultSettings['highlightOPColor']             = '#fff2aa';
+defaultSettings['displayPageNavigator']         = 'true';
+defaultSettings['userNotesEnabled']             = 'true';
+defaultSettings['salrInitialized']              = 'true';
+defaultSettings['topPurchaseAcc']               = 'true';
+defaultSettings['topPurchasePlat']              = 'true';
+defaultSettings['topPurchaseAva']               = 'true';
+defaultSettings['topPurchaseOtherAva']          = 'true';
+defaultSettings['topPurchaseArchives']          = 'true';
+defaultSettings['topPurchaseNoAds']             = 'true';
+defaultSettings['topPurchaseUsername']          = 'true';
+defaultSettings['topPurchaseNonProfAd']         = 'true';
+defaultSettings['topPurchaseForProfAd']         = 'true';
+defaultSettings['topPurchaseEmoticon']          = 'true';
+defaultSettings['topPurchaseSticky']            = 'true';
+defaultSettings['topPurchaseGiftCert']          = 'true';
+defaultSettings['topSAForums']                  = 'true';
+defaultSettings['topSearch']                    = 'true';
+defaultSettings['topUserCP']                    = 'true';
+defaultSettings['topPrivMsgs']                  = 'true';
+defaultSettings['topForumRules']                = 'true';
+defaultSettings['topSaclopedia']                = 'true';
+defaultSettings['topGloryhole']                 = 'true';
+defaultSettings['topLepersColony']              = 'true';
+defaultSettings['topSupport']                   = 'true';
+defaultSettings['topLogout']                    = 'true';
+defaultSettings['showPurchases']                = 'true';
+defaultSettings['showNavigation']               = 'true';
+
 
 /**
  * Event handler for clicking on the toolstrip logo
@@ -67,7 +144,7 @@ safari.application.addEventListener('message', handleScriptQuery, false);
  * @param element - Toolstrip element
  */
 function onToolbarClick() {
-    console.log('Any need for this?');
+	chrome.tabs.create({url:chrome.extension.getURL('settings.html')});
 }
 
 /**
@@ -76,31 +153,20 @@ function onToolbarClick() {
  *
  */
 function openNewTab(aUrl) {
-    safari.application.activeBrowserWindow.openTab('background').url = aUrl;
+    chrome.tabs.create({url: aUrl});
 }
 
-
 /**
- * Sets up default preferences for highlighting only
+ * Sets up default preferences for highlighting and menus only
  *
  */
 function setupDefaultPreferences() {
-    safari.extension.settings.setItem('userQuote', '#a2cd5a');
-    safari.extension.settings.setItem('darkRead', '#6699cc');
-    safari.extension.settings.setItem('lightRead', '#99ccff');
-    safari.extension.settings.setItem('darkNewReplies', '#99cc99');
-    safari.extension.settings.setItem('lightNewReplies', '#ccffcc');
-    safari.extension.settings.setItem('youtubeHighlight', '#ff00ff');
-    safari.extension.settings.setItem('highlightOwnQuotes', 'true');
-    safari.extension.settings.setItem('highlightFriendsColor', "#f2babb");
-    safari.extension.settings.setItem('highlightSelfColor', "#f2babb");
-    safari.extension.settings.setItem('highlightAdminColor', "#ff7256");
-    safari.extension.settings.setItem('highlightModeratorColor', "#b4eeb4");
-    safari.extension.settings.setItem('inlinePostCounts', 'false');
-    safari.extension.settings.setItem('disableCustomButtons', 'false');
-    safari.extension.settings.setItem('highlightOPColor', '#fff2aa');
-    safari.extension.settings.setItem('displayPageNavigator', 'true');
-    safari.extension.settings.setItem('userNotesEnabled', 'true');
+    // New, more scalable method for setting default prefs.
+    for ( var key in defaultSettings ) {
+        if ( localStorage.getItem(key) == undefined ) {
+            localStorage.setItem(key, defaultSettings[key]);
+        }
+    }
 }
 
 /**
@@ -108,16 +174,85 @@ function setupDefaultPreferences() {
  *
  */
 function getPageSettings() {
-    // If we don't have stored settings, set defaults
-    if (!safari.extension.settings.getItem('username')) {
-        setupDefaultPreferences();
+    // Don't wipe the settings made by previous versions
+    if (localStorage.getItem('username')) {
+        localStorage.setItem('salrInitialized', 'true');
     }
+
+    // If we don't have stored settings, set defaults
+    setupDefaultPreferences();
+
+    fixSettings();
 
     var response = {};
 
-    for (var index in safari.extension.settings) {
-        response[index] = safari.extension.settings.getItem(index);
+    for ( var index in localStorage ) {
+        response[index] = localStorage.getItem(index);
     }
+
+    response['message'] = 'SettingsResult';
 
     return response;
 } 
+
+/**
+ * Update settings from old versions
+ *
+ */
+function fixSettings() {
+    if (localStorage.getItem('disableCustomButtons') == 'true') {
+        localStorage.setItem('displayCustomButtons', 'false');
+        localStorage.removeItem('disableCustomButtons');
+    } else if (localStorage.getItem('disableCustomButtons') == 'false') {
+        localStorage.setItem('displayCustomButtons', 'true');
+        localStorage.removeItem('disableCustomButtons');
+    }
+    if (localStorage.getItem('ignore_bookmark_star')) {
+        localStorage.setItem('ignoreBookmarkStar', localStorage.getItem('ignore_bookmark_star'));
+        localStorage.removeItem('ignore_bookmark_star');
+    }
+    if (localStorage.getItem('highlightCancer')) {
+        localStorage.setItem('fixCancer', localStorage.getItem('highlightCancer'));
+        localStorage.removeItem('highlightCancer');
+    }
+}
+
+/**
+ * We handle the waffle images upload here so that we can leverage the cross-XHR
+ * permissions in Chrome.
+ *
+ */
+function uploadWaffleImagesFile(param) {
+    /*
+    var uploader = new ImageUploader({
+        mode: 'file',
+        tg_format: 'xml'
+    }, 'http://waffleimages.com/upload');
+    */
+
+    var uploader = new ImageUploader(
+        'http://api.imgur.com/2/upload.json?key=c0f6805130359ed37a5dbf3832aee4bc',
+        {
+            key: 'c0f6805130359ed37a5dbf3832aee4bc',
+            type: 'file'
+        });
+
+    uploader = new ImageUploader(
+        'http://dev.vokalinteractive.com/m4/photos/upload/',
+        {
+            username: 'scottwferg@gmail.com',
+            password: 'test'
+        });
+
+    uploader.bind('onComplete', function(event) {
+        console.log(event.response);
+    });
+
+    uploader.bind('onError', function(event) {
+        console.log('An error occurred');
+    });
+
+    console.log(param);
+
+    uploader.upload(param.file, 'photo');
+}

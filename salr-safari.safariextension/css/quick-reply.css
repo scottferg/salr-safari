@@ -77,6 +77,36 @@ div#side-bar {
     -webkit-border-top-right-radius: 6px;
 }
 
+div#top-bar {
+    width: 570px;
+    height: 300px;
+    display: none;
+    float: right;
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    margin-left: -285px;
+    padding: 20px;
+    border: solid 1px #999;
+    background: -webkit-gradient(linear, left top, left bottom, from(rgb(255,255,255)), to(rgb(230,230,230)));
+    -webkit-box-shadow: -1px -1px 12px rgba(0,0,0,0.25);
+    -webkit-border-top-left-radius: 6px;
+    -webkit-border-top-right-radius: 6px;
+}
+
+div#topbar-preview {
+    width: 570px;
+    height: 270px;
+    background: #eee;
+    overflow-y: auto;
+    word-wrap: break-word;
+    border: 1px solid #999;
+}
+
+div#preview-content {
+    margin: 12px 12px;
+}
+
 textarea#post-message {
     width: 590px;
 }
@@ -110,8 +140,12 @@ div#tag-menu {
     top: 100px;
 }
 
-div#waffle-images-menu {
+div#imgur-images-menu {
     top: 125px;
+}
+
+div#waffle-images-menu {
+    top: 150px;
 }
 
 div#sidebar-list {
@@ -139,16 +173,4 @@ div.sidebar-menu-item {
 div.sidebar-menu-item:hover {
     background: #ccc;
     cursor: pointer;
-}
-
-div#dropzone {
-    position: relative;
-}
-div#dropzone input {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    opacity: 0;
 }

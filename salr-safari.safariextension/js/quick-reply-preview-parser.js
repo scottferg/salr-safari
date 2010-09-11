@@ -23,41 +23,48 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-function EmoteParser(observer) {
-    this.emote_url = "http://forums.somethingawful.com/misc.php"
-    this.observer = observer;
-    this.emotes = {};
-
-    this.construct()
+function PreviewParser(post_text, emote_list) {
+    this.post_text = post_text;
+    this.emote_list = emote_list;
+    
+    this.parseSmilies();
+    this.parseBBCodes();
+    this.parseQuotes();
+    this.parseImages();
 }
 
-EmoteParser.prototype.construct = function() {
-     var that = this;
-
-     jQuery.get(this.emote_url, { action: 'showsmilies' },
-       function(response) {
-           that.parseResponse(response)
-       }
-    );
+PreviewParser.prototype.fetchResult = function() {
+    return this.post_text;
 };
 
-EmoteParser.prototype.parseResponse = function(response) {
-    var that = this;
-    var index = 0;
+PreviewParser.prototype.parseSmilies = function() {
+    for (var index in this.emote_list) {
+        var title = this.emote_list[index].emote;
+        var img = this.emote_list[index].image;
 
-    jQuery('li.smilie', response).each(function() {
-        var emote = jQuery('div.text', this).first().html();
-        var image = jQuery('img', this).first().attr('src');
-        var title = 'emote-' + index;
-
-        that.emotes[title] = {'emote': emote, 'image': image};    
-
-        index++;
-    });
-
-    this.observer.notify(this.emotes);
+        if (this.post_text.indexOf(title) != -1) {
+            this.post_text = this.post_text.replace(title, '<img src="' + img + '" title="' + title + '" border="0" alt="" />');
+        }
+    }
 };
 
-EmoteParser.prototype.getEmotes = function() {
-    return this.emotes;
+PreviewParser.prototype.parseBBCodes = function() {
+    this.post_text = parseBBCode(this.post_text);
+};
+
+PreviewParser.prototype.parseQuotes = function() {
+    var quote_re = /\[quote\="?(.*?)"?\](.*?)\[\/quote\]/g;
+    var quote_format = '<div style="margin: 0px 6px;" class="bbc-block"><h4>$1 posted:</h4><blockquote>$2</blockquote></div>'
+
+    this.post_text = this.post_text.replace(quote_re, quote_format);
+};
+
+PreviewParser.prototype.parseImages = function() {
+    var image_re = /\[img\](.*?)\[\/img\]/g;
+    var thumb_image_re = /\[timg\](.*?)\[\/timg\]/g;
+    var image_format = '<img src="$1" />'
+    var thumb_image_format = '<img class="timg loading" src="$1" />'
+
+    this.post_text = this.post_text.replace(image_re, image_format);
+    this.post_text = this.post_text.replace(thumb_image_re, thumb_image_format);
 };

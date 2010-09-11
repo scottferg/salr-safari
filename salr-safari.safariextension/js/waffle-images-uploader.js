@@ -23,3 +23,104 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+function ImageUploader(url, params) {
+    this.dashdash = '--';
+    this.crlf = '\r\n';
+    this.boundary = '------multipartformboundary' + (new Date).getTime(),
+
+    this.params = params;
+    this.url = url;
+
+    this._listeners = {};
+}
+
+ImageUploader.prototype.bind = function(event, subject) {
+    if (typeof this._listeners[event] == "undefined") {
+        this._listeners[event] = [];
+    }
+
+    this._listeners[event].push(subject);
+};
+
+ImageUploader.prototype.fireEvent = function(event) {
+    if (typeof event == "string") {
+        event = {
+            type: event
+        };
+    }
+
+    if (!event.target) {
+        event.target = this;
+    }
+
+    if (this._listeners[event.type] instanceof Array) {
+        var listeners = this._listeners[event.type];
+
+        for (var index in listeners) {
+            listeners[index].call(this, event);
+        }
+    }
+};
+
+ImageUploader.prototype.upload = function(image, paramname) {
+    var that = this;
+
+    var xhr = new XMLHttpRequest();
+    var upload = xhr.upload;
+
+    upload.onprogress = function(event) {
+        that.fireEvent({
+            type: 'onProgress',
+            loaded: event.loaded,
+            total: event.total
+        });
+    };
+
+    var parameter_url = this.url + "?";
+
+    for (var key in this.params) {
+        parameter_url += key + "=" + this.params[key];
+    }
+
+    console.log(parameter_url);
+
+    xhr.open("POST", parameter_url, true);
+    xhr.setRequestHeader("Content-Type", "multipart/form-data");
+    
+    xhr.send(image);  
+
+    xhr.onload = function() { 
+        var result = {};
+
+        switch (xhr.status) {
+            case 500:
+                result = {
+                    type: 'onError'
+                };
+                break;
+            default:
+                result = { 
+                    type: 'onComplete',
+                    response: xhr.responseText
+                };
+                break;
+        }
+
+        that.fireEvent(result);
+    };
+};
+
+ImageUploader.prototype.uploadUrl = function(image_url, paramname) {
+    var that = this;
+
+    this.params[paramname] = image_url;
+
+    jQuery.post(this.url,
+               this.params,
+               function(response) {
+                   that.fireEvent({
+                       type: 'onComplete',
+                       response: response 
+                   });
+               });
+};
