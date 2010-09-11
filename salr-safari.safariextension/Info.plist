@@ -28,7 +28,6 @@
 				<string>js/jquery/jquery.js</string>
 				<string>js/jquery/jquery-ui.js</string>
 				<string>js/jquery/jquery.transform.min.js</string>
-				<string>js/jquery/jquery.filedrop.js</string>
 				<string>js/jquery/jquery.rightclick.js</string>
 				<string>js/jquery/jquery.fieldselection.js</string>
 				<string>js/util.js</string>
@@ -40,6 +39,7 @@
 				<string>js/salr.js</string>
 				<string>js/jquery/colorpicker.js</string>
 				<string>js/background.js</string>
+				<string>js/jquery/jquery.putCursorAtEnd.1.0.js</string>
 			</array>
 		</dict>
 		<key>Stylesheets</key>

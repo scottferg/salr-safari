@@ -26,21 +26,13 @@
 var salr_client = false; 
 
 function handleSettings(message_event) {
-    var settings = {};
-    var message = message_event.message;
-
-    // Safari uses real booleans, Chrome does not
-    for (var index in message) {
-        if (message[index] == true) {
-            message[index] = 'true';
-        } else if (message[index] == false) {
-            message[index] = 'false';
-        }
-
-        settings[index] = message[index];
+    if (!salr_client) {
+        salr_client = new SALR(message_event.message, safari.extension.baseURI + "images/");
     }
+}
 
-    salr_client = new SALR(settings, safari.extension.baseURI + "images/");
+function appendImage(message_event) {
+    salr_client.appendImage(message_event.original, message_event.thumbnail, message_event.type);
 }
 
 /**
@@ -52,6 +44,7 @@ function handleSettings(message_event) {
  *
  */
 safari.self.addEventListener('message', handleSettings, false);
+safari.self.addEventListener('AppendImage', appendImage, false);
 
 if (window.top === window) {
     // Request the username from the extension UI

@@ -23,75 +23,65 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/**
- * External message event listener
- *
- */
-chrome.extension.onConnectExternal.addListener(function(port) {
-    port.onMessage.addListener(function(data) {
-        switch (data.message) {
-            case 'GetForumsJumpList':
-            case 'GetSALRSettings':
-                port.postMessage(getPageSettings());
-                break;
-            case 'ChangeSALRSetting':
-                localStorage.setItem(data.option, data.value);
-                break;
-        }
-    });
-});
 
 /**
  * Message event listener so that we can talk to the content-script
  *
  */
-chrome.extension.onConnect.addListener(function(port) {
-    port.onMessage.addListener(function(data) {
-        switch (data.message) {
-            case 'OpenSettings':
-                onToolbarClick();
-                break;
-            case 'ChangeSetting':
-                localStorage.setItem(data.option, data.value);
-                break;
-            case 'OpenTab':
-                openNewTab(data.url);
-                break;
-            case 'ShowPageAction':
-                // Register the tab with the tagging page action
-                chrome.pageActions.enableForTab("forums_jump_list",
-                                                { 
-                                                    tabId: port.tab.id,
-                                                    url: port.tab.url,
-                                                    title: "Click to open forum jump list",
-                                                    iconId: 0
-                                                });
+function handleScriptQuery(message_event) {
+    var data = message_event.message;
 
-                break;
-            case 'GetPageSettings':
-            case 'GetSALRSettings':
-            case 'GetForumsJumpList':
-                port.postMessage(getPageSettings());
-                break;
-            case 'ChangeSALRSetting':
-                localStorage.setItem(data.option, data.value);
-            case 'UploadWaffleImages':
-                uploadWaffleImagesFile(data);
-                break;
-            case 'AppendUploadedImage':
-                console.log('Got request!');
-                chrome.tabs.getSelected(null, function(tab) {
-                    chrome.tabs.sendRequest(tab.id, data, function(response) {
-                        console.log(response.farewell);
-                    });
-                });
-                break;
-            case 'log':
-            default:
-                console.log(data);
-		}
-    });
-});
+    switch (data.message) {
+        case 'OpenSettings':
+            onToolbarClick();
+            break;
+        case 'ChangeSetting':
+            localStorage.setItem(data.option, data.value);
+            break;
+        case 'OpenTab':
+            openNewTab(data.url);
+            break;
+        case 'GetPageSettings':
+        case 'GetSALRSettings':
+        case 'GetForumsJumpList':
+            // Respond with the username
+            message_event.target.page.dispatchMessage('result', getPageSettings());
+            break;
+        case 'ChangeSALRSetting':
+            localStorage.setItem(data.option, data.value);
+            break;
+        case 'AppendUploadedImage':
+            safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('AppendImage', data);
+            break;
+        case 'log':
+        default:
+            console.log(data);
+    }
+}
+
+/**
+ * External message event listener
+ *
+ */
+safari.application.addEventListener('message', handleScriptQuery, false);
+
+/**
+ * Event handler for clicking on the toolstrip logo
+ *
+ * @param element - Toolstrip element
+ */
+function onToolbarClick() {
+    console.log('Any need for this?');
+}
+
+/**
+ * Opens a new tab with the specified URL
+ *
+ *
+ */
+function openNewTab(aUrl) {
+    safari.application.activeBrowserWindow.openTab('background').url = aUrl;
+}
 
 // New assoc array for storing default settings.
 var defaultSettings = [];
@@ -136,25 +126,6 @@ defaultSettings['topSupport']                   = 'true';
 defaultSettings['topLogout']                    = 'true';
 defaultSettings['showPurchases']                = 'true';
 defaultSettings['showNavigation']               = 'true';
-
-
-/**
- * Event handler for clicking on the toolstrip logo
- *
- * @param element - Toolstrip element
- */
-function onToolbarClick() {
-	chrome.tabs.create({url:chrome.extension.getURL('settings.html')});
-}
-
-/**
- * Opens a new tab with the specified URL
- *
- *
- */
-function openNewTab(aUrl) {
-    chrome.tabs.create({url: aUrl});
-}
 
 /**
  * Sets up default preferences for highlighting and menus only

@@ -350,13 +350,11 @@ SALR.prototype.updateStyling = function() {
         }
     });
 	
-	if(this.settings.displayConfigureSalr == 'true') {
-        if ( this.settings.showNavigation == 'true' ) {
-            jQuery('#navigation li.first').next('li').next('li').after("- <li><a id='configure' href='#'>Configure SALR</a></li>");
-        } else {
-            jQuery('#container').before("<div style='padding: 3px; text-align: center; font-size: 10px;'><a id='configure' href='#'>Configure SALR</a></div>");
-        }
-	}
+    if ( this.settings.showNavigation == 'true' ) {
+        jQuery('#navigation li.first').next('li').next('li').after("- <li><a id='configure' href='" + safari.extension.baseURI + "settings.html'>Configure SALR</a></li>");
+    } else {
+        jQuery('#container').before("<div style='padding: 3px; text-align: center; font-size: 10px;'><a id='configure' href='" + safari.extension.baseURI + "settings.html'>Configure SALR</a></div>");
+    }
 	
 	jQuery('#configure').click(function() {
 		that.openSettings();

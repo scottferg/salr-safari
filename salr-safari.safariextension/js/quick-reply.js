@@ -554,7 +554,7 @@ QuickReplyBox.prototype.setWaffleImagesSidebar = function() {
 };
 
 QuickReplyBox.prototype.setImgurImagesSidebar = function() {
-    html = '<iframe src="' + chrome.extension.getURL('/') + 'imgur-upload.html" width="162" height="245" frameborder="0"></iframe>';
+    html = '<iframe src="' + safari.extension.baseURI + 'imgur-upload.html" width="162" height="245" frameborder="0"></iframe>';
     jQuery('#sidebar-list').html(html);
 
     this.sidebar_html = html;

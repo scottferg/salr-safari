@@ -100,7 +100,6 @@
         </div>
     </div>
     <script type="text/javascript">
-        var port = chrome.extension.connect();
         var uploader = new ImageUploader(
             'http://api.imgur.com/2/upload.xml',
             {
@@ -124,7 +123,7 @@
             jQuery('input#submit-button').click(function() {
                 var type = $("input[@name=type]:checked").attr('value');
 
-                port.postMessage({
+                safari.self.tab.dispatchMessage('message', {
                     message: 'AppendUploadedImage',
                     original: original_image,
                     thumbnail: square_thumbnail,
